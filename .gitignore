@@ -5,9 +5,17 @@ build/
 dist/
 wheels/
 *.egg-info
+.ruff_cache
 
 # Virtual environments
 .venv
 
+# API keys
+env.py
+.env
+
 explore.ipynb
 proposal.md
+.vscode
+results/
+

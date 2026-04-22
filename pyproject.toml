@@ -1,7 +1,28 @@
 [project]
 name = "filter-generator-complementarity"
 version = "0.1.0"
-description = "Add your description here"
+description = "Characterizing complementary failure modes between small safety filters and frontier generator models on canonical adversarial prompts."
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.96.0",
+    "ipykernel>=7.2.0",
+    "jailbreakbench>=1.0.0",
+    "pip>=26.0.1",
+    "pydantic>=2.13.1",
+    "python-dotenv>=1.2.2",
+    "setuptools<81.0.0",
+    "together>=2.8.0",
+    "tqdm>=4.67.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "ruff>=0.15.11",
+]
+
+[tool.uv]
+constraint-dependencies = [
+    "litellm==1.20.0"
+]

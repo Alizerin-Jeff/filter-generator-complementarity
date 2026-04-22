@@ -1,113 +1,124 @@
-# filter-generator-complementarity
+# Filter vs. Generator: Complementary Failure Modes in Two-Stage Safety Architectures
 
-Phase 1 experiment: characterize complementary failure modes between a safety filter (Llama Guard 4) and larger generator models (Llama 3.3 70B, Claude Haiku 4.5) under known adversarial prompt datasets.
+Do safety filters actually catch attacks that frontier LLMs miss, or do they just duplicate what the model's own refusal training already handles?
 
-See `proposal.md` for research question, method, and scope.
+This experiment characterizes the complementarity structure between a small safety classifier (Llama Guard 4 12B) and two larger generator models (Llama 3.3 70B, Claude Haiku 4.5) across ~680 adversarial prompts from [JailbreakBench](https://jailbreakbench.github.io/). Each prompt runs through two configurations — generator alone and filter-then-generator — producing a 2×2 confusion matrix that reveals where each component catches attacks the other misses.
+
+## Key Question
+
+When a filter blocks a prompt that the generator would have refused anyway, the filter adds latency without adding safety. When the filter blocks something the generator would have complied with, the filter is doing real work. The ratio between these two cases quantifies the *marginal value* of the filter — and it varies by attack algorithm.
 
 ## Architecture
 
 ```
-Python orchestrator (single process, M2 MacBook)
-         │
-         ├─── Together.ai API ──▶  Llama 3.3 70B Turbo  (generator)
-         │                        Llama Guard 4 12B    (filter + judge)
-         ├─── Anthropic API ───▶  Claude Haiku 4.5     (generator + judge)
-         │
-         └─── writes ─────────▶  results/*.jsonl  (append-only, resumable)
+                        ┌─────────────────────────────┐
+                        │   Config A: Generator Alone  │
+  682 prompts           │   prompt ──► generator ──►   │──── raw_results.jsonl
+  (attacks.jsonl)  ───► │                              │          │
+                        │   Config B: Filter + Gen     │          ▼
+                        │   prompt ──► LlamaGuard ──►  │    3 independent
+                        │     allow? ──► generator     │      judges
+                        │     block? ──► skip          │          │
+                        └─────────────────────────────┘          ▼
+                                                         judged_results.jsonl
 ```
 
-No GPU rental. No local inference. Everything runs on your laptop hitting hosted APIs.
+All inference via hosted APIs — no GPU rental, runs on a laptop.
 
-## Layout
+### Models
+
+| Role | Model | Provider |
+|------|-------|----------|
+| Filter | Llama Guard 4 12B | Together.ai |
+| Generator | Llama 3.3 70B Instruct Turbo | Together.ai |
+| Generator | Claude Haiku 4.5 | Anthropic |
+| Judge | Gemma 3n E4B | Together.ai (Google) |
+| Judge | Kimi K2.5 | Together.ai (Moonshot) |
+| Judge | MiniMax M2.7 | Together.ai (MiniMax) |
+
+Judges are from three different model families, none overlapping with the generators, to avoid self-judgment contamination.
+
+## Dataset
+
+682 prompts sourced from JailbreakBench, covering five attack algorithms and a benign control set:
+
+| Source | Attack Type | Description |
+|--------|-------------|-------------|
+| JBB artifacts | PAIR | LLM-generated social engineering (Chao et al.) |
+| JBB artifacts | GCG | Gradient-based adversarial suffixes (Zou et al.) |
+| JBB artifacts | JBC | Human-crafted jailbreak templates |
+| JBB artifacts | DSN | Do-Something-Now prompts |
+| JBB artifacts | PwRS | Prompt with random search |
+| JBB base behaviors | Direct | Harmful requests, no attack scaffolding |
+| JBB benign | Benign | Non-harmful lookalikes (false-positive control) |
+
+## Project Structure
 
 ```
-.
-├── proposal.md                  # research proposal (start here)
-├── pyproject.toml               # project deps
-├── .env.example                 # TOGETHER_API_KEY, ANTHROPIC_API_KEY
 ├── data/
-│   ├── raw/                     # downloaded JBB behaviors + artifacts (gitignored)
-│   ├── build_dataset.py         # unify JBB sources into merged.csv
-│   └── processed/merged.csv     # canonical ~500-prompt dataset
+│   ├── attacks.jsonl          # Canonical prompt dataset (682 rows)
+│   └── build_dataset.py       # Pulls from JailbreakBench, builds attacks.jsonl
 ├── src/
-│   ├── schema.py                # Pydantic models — authoritative data contract
-│   ├── runners/
-│   │   ├── together.py          # filter + Llama 3.3 70B generator + judge
-│   │   └── anthropic.py         # Haiku generator + judge
-│   ├── pipeline.py              # main eval loop (resumable)
-│   └── analysis/
-│       ├── confusion.py         # 2x2 matrices by attack type
-│       └── judges.py            # judge agreement analysis
-├── notebooks/
-│   └── explore.ipynb            # analysis scratchpad
-└── results/                     # JSONL per-prompt outputs (gitignored)
+│   ├── schema.py              # Pydantic models — data contract for all I/O
+│   ├── pipeline.py            # Main eval loop with generation + judging
+│   └── runners/
+│       ├── helpers.py         # API clients, retry logic, dataset/results I/O
+│       ├── together.py        # Llama Guard filter + Llama 3.3 70B generator
+│       ├── anthropic.py       # Claude Haiku 4.5 generator
+│       └── judges.py          # Judge prompt template and verdict extraction
+├── results/                   # JSONL outputs (gitignored)
+│   ├── raw_results.jsonl      # Generation outputs before judging
+│   └── judged_results.jsonl   # Final results with judge verdicts
+├── pyproject.toml
+└── README.md
 ```
 
-## Quickstart
+## Setup
 
 ```bash
-# 1. Setup
-uv venv && source .venv/bin/activate   # or python -m venv, pip, etc.
+# Install dependencies (requires uv)
+uv venv && source .venv/bin/activate
 uv pip install -e .
-cp .env.example .env  # add your keys
 
-# 2. Build dataset
-python -m data.build_dataset
+# Configure API keys
+cp .env.example .env
+# Add TOGETHER_AI_API_KEY and ANTHROPIC_API_KEY
 
-# 3. Smoke test — tiny subset, both configs, confirm pipeline works end-to-end
-python -m src.pipeline --limit 10 --dry-run
+# Build the dataset from JailbreakBench
+uv run data/build_dataset.py
 
-# 4. Full eval
-python -m src.pipeline --generator llama_3.3_70b
-python -m src.pipeline --generator claude_haiku_4.5
+# Smoke test — first 10 prompts only
+uv run src/pipeline.py --dry-run 10
 
-# 5. Analyze
-python -m src.analysis.confusion
-python -m src.analysis.judges
+# Full run (generation + judging, ~2-3 hours sequential)
+# Async with per-provider rate limiting is planned — see Status
+uv run src/pipeline.py
 ```
 
-## Critical design decisions (read before writing code)
+## Design Decisions
 
-1. **JSONL append-only, resumable.** Every completed prompt writes one line conforming to `Result`. On restart, pipeline reads existing lines and skips those `prompt_id`s. Saves you when an API call times out at prompt 347.
+**Resumable pipeline.** Every result is flushed to JSONL immediately after completion. On restart, the pipeline reads existing `(prompt_id, config, generator)` tuples and skips them. Safe to kill and restart mid-run without data loss or duplicates.
 
-2. **Judge ≠ Filter contamination.** Llama Guard runs twice with different roles: once as input filter (config B only), once as output judge. The Haiku judge is the independent signal; Llama Guard's self-judgment should be reported but treated with caution. Compare judge agreement as a separate analysis.
+**Two-phase execution.** Generation runs first across all prompts, configs, and generators. Judging runs as a separate pass over the raw results. This means judge prompts can be iterated without re-running (and re-paying for) generation.
 
-3. **Benign prompts run through everything too.** Not a separate pass. Filter false-positive rate is part of the main result, not an addendum.
+**Three independent judges.** Each generator response is classified as REFUSAL, COMPLIANCE_HARMFUL, COMPLIANCE_BENIGN, or UNCLEAR by three models from different families. Majority vote determines the final verdict. Filter-blocked rows skip judging entirely — there's no response to evaluate.
 
-4. **Pydantic everywhere at I/O boundaries.** Every JSONL line is validated on read and write. If an API response doesn't fit `Result`, you find out immediately, not during analysis three days later.
+**Retry with exponential backoff.** All API calls use `tenacity` with randomized exponential backoff, retrying on rate limits and connection errors up to 10 attempts.
 
-5. **Don't optimize what you haven't measured.** Get correctness on 10 prompts first. Then scale. `httpx.AsyncClient` with a modest concurrency limit (say 8) is plenty — you're not latency-bound on a 500-prompt eval.
+**Pydantic at every I/O boundary.** Every JSONL row is validated on read and write. Schema violations surface immediately, not during analysis.
 
-## Recommended dependencies
+## Caveats
 
-```toml
-# pyproject.toml excerpt
-dependencies = [
-    "pydantic>=2.0",
-    "httpx",               # for API calls; async-friendly
-    "anthropic",           # official SDK
-    "together",            # official SDK
-    "pandas",              # dataset + analysis
-    "datasets",            # to pull JBB from HuggingFace
-    "python-dotenv",
-    "tenacity",            # retry logic for flaky APIs
-]
-```
+**Training data contamination.** JailbreakBench (2024) predates all models under test. These attacks are likely in safety training data. This experiment measures complementarity on *known* attack patterns, not robustness against novel attacks. Absolute attack success rates are lower bounds, not the primary finding.
 
-## Before running the full eval
+**Modest sample size.** 682 prompts yields qualitative patterns, not precise rates. Bootstrap confidence intervals should be used when reporting cell counts.
 
-Verify on a 10-prompt smoke test that:
-- Dataset loader produces expected prompt counts by `attack_algorithm` and `is_benign`
-- Pipeline writes JSONL conforming to `Result` schema (`pydantic.ValidationError` surfaces bugs early)
-- Resume logic skips already-completed `prompt_id`s
-- Both judges return verdicts in the expected enum; escalate unknown cases to `UNCLEAR`
-- Analysis produces a valid confusion matrix from a tiny results file
+## Status
 
-Budget 1–2 days for this. Finding a bug after a full run is annoying; finding one after writing up results is much worse.
-
-## Risks surfaced in planning
-
-- **Contamination.** JBB and HarmBench predate all models under test. See `proposal.md` §"Training Data Contamination" — this shapes how results should be framed, doesn't invalidate them. Phase 2 plans a held-out set to measure the gap.
-- **Low baseline attack success.** Against modern well-aligned models, many public jailbreak artifacts fail outright. Expect ASR lower than the original attack papers report. Bounds the effect size but makes complementarity analysis more interesting (disagreements are concentrated on the attacks that *do* land).
-- **Judge disagreement.** Llama Guard and Haiku may disagree on borderline cases. Report agreement rate; if <80%, sample 20 disagreements for manual review and report that qualitatively.
-- **N=500 is modest.** Use bootstrap CIs when reporting cell counts. Don't claim precision you don't have.
+- [x] Dataset construction (682 prompts, 5 attack types + benign control)
+- [x] Generation pipeline (2 configs × 2 generators × 682 prompts)
+- [ ] Judging pipeline (in progress)
+- [ ] Confusion matrix analysis by attack algorithm
+- [ ] Judge agreement analysis
+- [ ] Write-up and figures
+- [ ] Async pipeline with per-provider rate limiting (Together 60/min, Anthropic 50/min)

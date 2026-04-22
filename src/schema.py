@@ -14,27 +14,32 @@ from pydantic import BaseModel, Field
 
 # ---------- Enums: controlled vocabularies ----------
 
+
 class AttackAlgorithm(str, Enum):
     """How the adversarial prompt was generated."""
-    PAIR = "pair"                   # LLM-generated social engineering (Chao et al.)
-    GCG = "gcg"                     # Gradient suffix (Zou et al.)
-    JAILBREAKCHAT = "jailbreakchat" # Human-crafted template
-    DIRECT = "direct"               # No attack scaffolding — base behavior
-    BENIGN = "benign"               # Not an attack; benign lookalike
+
+    PAIR = "PAIR"  # LLM-generated social engineering (Chao et al.)
+    GCG = "GCG"  # Gradient suffix (Zou et al.)
+    JAILBREAKCHAT = "JBC"  # Human-crafted template
+    DSN = "DSN"  #
+    PWRS = "prompt_with_random_search"  #
+    DIRECT = "direct"  # No attack scaffolding — base behavior
+    BENIGN = "benign"  # Not an attack; benign lookalike
 
 
 class HarmCategory(str, Enum):
     """OpenAI-policy-style harm taxonomy, as used by JailbreakBench."""
-    MALWARE = "malware"
-    HARASSMENT = "harassment"
-    MISINFORMATION = "misinformation"
-    PRIVACY = "privacy"
-    ILLEGAL = "illegal"
-    WEAPONS_CBRN = "weapons_cbrn"
-    SELF_HARM = "self_harm"
-    ECONOMIC = "economic"
-    GOVERNMENT_DECISION_MAKING = "government_decision_making"
-    SEXUAL_CONTENT = "sexual_content"
+
+    MALWARE = "Malware/Hacking"
+    HARASSMENT = "Harassment/Discrimination"
+    MISINFORMATION = "Disinformation"
+    PRIVACY = "Privacy"
+    FRAUD = "Fraud/Deception"
+    EXPERT_ADVICE = "Expert advice"
+    HARM = "Physical harm"
+    ECONOMIC = "Economic harm"
+    GOVERNMENT_DECISION_MAKING = "Government decision-making"
+    SEXUAL_CONTENT = "Sexual/Adult content"
     NONE = "none"  # for benign prompts
 
 
@@ -50,8 +55,14 @@ class Configuration(str, Enum):
 
 
 class Generator(str, Enum):
-    LLAMA_33_70B = "llama_3.3_70b"
-    CLAUDE_HAIKU_45 = "claude_haiku_4.5"
+    LLAMA_33_70B = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    CLAUDE_HAIKU_45 = "claude-haiku-4-5"
+
+
+class Judge(str, Enum):
+    GEMMA = "google/gemma-3n-E4B-it"
+    KIMI = "moonshotai/Kimi-K2.5"
+    MINI = "MiniMaxAI/MiniMax-M2.7"
 
 
 class FilterVerdict(str, Enum):
@@ -68,8 +79,10 @@ class JudgeVerdict(str, Enum):
 
 # ---------- Core data models ----------
 
+
 class Prompt(BaseModel):
     """One row of the merged dataset."""
+
     prompt_id: str = Field(..., description="Stable ID, e.g. 'jbb_pair_042'")
     source: Source
     attack_algorithm: AttackAlgorithm
@@ -80,21 +93,27 @@ class Prompt(BaseModel):
 
 class Result(BaseModel):
     """One row of results/*.jsonl — the atomic unit of the experiment."""
-    prompt_id: str
+
+    id: str
     config: Configuration
     generator: Generator
 
     # Filter stage (only populated when config == FILTER_THEN_GENERATOR)
     filter_verdict: Optional[FilterVerdict] = None
-    filter_raw: Optional[str] = Field(None, description="Raw classifier output for auditing")
+    filter_raw: Optional[str] = Field(
+        None, description="Raw classifier output for auditing"
+    )
 
     # Generator stage
-    generator_response: Optional[str] = Field(None, description="None if filter blocked")
+    generator_response: Optional[str] = Field(
+        None, description="None if filter blocked"
+    )
     generator_latency_ms: int = 0
 
-    # Judge stage — two judges, independent
-    judge_llamaguard: Optional[JudgeVerdict] = None
-    judge_haiku: Optional[JudgeVerdict] = None
+    # Judge stage — three judges, independent
+    judge_gemma: Optional[JudgeVerdict] = None
+    judge_kimi: Optional[JudgeVerdict] = None
+    judge_mini: Optional[JudgeVerdict] = None
 
     # Bookkeeping
     timestamp: datetime
@@ -103,6 +122,7 @@ class Result(BaseModel):
 
 class ConfusionCell(BaseModel):
     """Aggregate output of analysis stage — one row per (algorithm, generator) pair."""
+
     attack_algorithm: AttackAlgorithm
     generator: Generator
     filter_allow_gen_refuse: int
