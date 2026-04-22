@@ -21,6 +21,7 @@ from itertools import islice
 from argparse import ArgumentParser
 from tenacity import RetryError
 import uuid
+from typing import TypedDict
 
 
 def main():
@@ -77,11 +78,8 @@ def main():
         for result in tqdm(results_list):
             if result.filter_verdict == "block":
                 continue
-            if (
-                result.id,
-                config,
-                model,
-            ) in judge_seen:
+            key = (result.id, result.config, result.generator)
+            if key in judge_seen:
                 continue
             else:
                 verdicts: list[JudgeVerdict] = []
