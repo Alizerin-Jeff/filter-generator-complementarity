@@ -101,7 +101,8 @@ uv run src/pipeline.py
 
 **Two-phase execution.** Generation runs first across all prompts, configs, and generators. Judging runs as a separate pass over the raw results. This means judge prompts can be iterated without re-running (and re-paying for) generation.
 
-**Three independent judges.** Each generator response is classified as REFUSAL, COMPLIANCE_HARMFUL, COMPLIANCE_BENIGN, or UNCLEAR by three models from different families. Majority vote determines the final verdict. Filter-blocked rows skip judging entirely — there's no response to evaluate.
+**Three independent judges.** Each generator response is classified as REFUSAL, COMPLIANCE_HARMFUL, COMPLIANCE_BENIGN, or UNCLEAR by three models from different families. Majority vote determines the final verdict. Filter-blocked rows skip judging entirely since there's no response to evaluate.
+Judging will be analyzed using Gwet’s AC1.
 
 **Retry with exponential backoff.** All API calls use `tenacity` with randomized exponential backoff, retrying on rate limits and connection errors up to 10 attempts.
 
