@@ -8,7 +8,7 @@ and final results are written to disk.
 
 """
 
-from runners.together import run_generator_async
+from runners.generation import run_generator_async
 from runners.judges import run_judging
 from runners.helpers import (
     get_attacks,
