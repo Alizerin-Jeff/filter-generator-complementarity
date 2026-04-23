@@ -107,9 +107,9 @@ def get_existing_results_set(filepath: str) -> set[tuple]:
                     result = Result(**json.loads(item))
                     seen.add((result.id, result.config, result.generator))
         if seen:
-            print("Found results! Picking up where we left off")
+            print("Found entries! Picking up where we left off")
         else:
-            print("No existing results, starting fresh.")
+            print("No existing entries, starting fresh.")
     except FileNotFoundError:
-        print("No existing results, starting fresh.")
+        print("No existing entries, starting fresh.")
     return seen
