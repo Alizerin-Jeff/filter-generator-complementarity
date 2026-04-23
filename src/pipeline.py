@@ -8,20 +8,40 @@ and final results are written to disk.
 
 """
 
-from runners.together import run_generator
-from runners.judges import get_verdict
+from runners.together import run_generator_async
+from runners.judges import run_judging
 from runners.helpers import (
     get_attacks,
     get_results,
     get_existing_results_set,
 )
-from schema import Configuration, Generator, Judge, JudgeVerdict
-from tqdm import tqdm
-from itertools import islice
 from argparse import ArgumentParser
-from tenacity import RetryError
+from aiolimiter import AsyncLimiter
 import uuid
-from typing import TypedDict
+import asyncio
+
+
+async def amain(limit):
+
+    # Rate Limiters - adjust to your tier for Anthropic and Together.ai
+    limiter = AsyncLimiter(45, 60)
+    concurrency = asyncio.Semaphore(8)
+
+    attacks = get_attacks()
+    run_id = str(uuid.uuid4())
+
+    print("Checking for existing results...")
+    seen = get_existing_results_set("results/raw_results.jsonl")
+    print("Generating results.")
+    await run_generator_async(attacks, run_id, seen, limit, limiter, concurrency)
+
+
+    print("\nGathered all results, now Judging them.")
+    results_list = get_results()
+    judge_seen = get_existing_results_set("results/judged_results.jsonl")
+    prompts_dict = {p.prompt_id: p for p in get_attacks()}
+
+    await run_judging(results_list, prompts_dict, judge_seen, limiter, concurrency)
 
 
 def main():
@@ -36,71 +56,8 @@ def main():
         help="Run only first N items (default 10 if no numnber given)",
     )
     args = parser.parse_args()
-    limit = args.dry_run
+    asyncio.run(amain(args.dry_run))
 
-    attacks = get_attacks()
-    run_id = str(uuid.uuid4())
-
-    print("Checking for existing results...")
-    seen = get_existing_results_set("results/raw_results.jsonl")
-    if len(seen) > 0:
-        print(len(seen))
-        print("Found results! Picking up where we left off")
-    else:
-        print("No existing results, starting fresh.")
-
-    for model in Generator:
-        for config in Configuration:
-            print(f"Generating results for {model.value} with {config.value}.")
-            with open("results/raw_results.jsonl", "a", encoding="utf8") as f:
-                for attack in tqdm(islice(attacks, limit), total=limit if limit else len(attacks)):
-                    if (
-                        attack.prompt_id,
-                        config,
-                        model,
-                    ) in seen:
-                        continue
-                    else:
-                        result = run_generator(
-                            attack,
-                            config,
-                            model,
-                            run_id,
-                        )
-                        f.write(result.model_dump_json() + "\n")
-                        f.flush()
-
-    print("\nGathered all results, now Judging them.")
-    results_list = get_results()
-    judge_seen = get_existing_results_set("results/judged_results.jsonl")
-    prompts_dict = {p.prompt_id: p for p in get_attacks()}
-    with open("results/judged_results.jsonl", "a", encoding="utf8") as f:
-        for result in tqdm(results_list):
-            if result.filter_verdict == "block":
-                continue
-            key = (result.id, result.config, result.generator)
-            if key in judge_seen:
-                continue
-            else:
-                verdicts: list[JudgeVerdict] = []
-                for model in Judge:
-                    try:
-                        verdict = get_verdict(
-                            result, model.value, prompts_dict[result.id].prompt_text
-                        )
-                        verdicts.append(verdict)
-                    except RetryError as e:
-                        print("RetryError:", e)
-                        break
-                    except Exception as e:
-                        print("Error:", e)
-                        break
-                else:
-                    result.judge_gemma = verdicts[0]
-                    result.judge_kimi = verdicts[1]
-                    result.judge_mini = verdicts[2]
-                    f.write(result.model_dump_json() + "\n")
-                    f.flush()   
 
 if __name__ == "__main__":
     main()

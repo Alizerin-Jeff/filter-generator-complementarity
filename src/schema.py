@@ -21,8 +21,8 @@ class AttackAlgorithm(str, Enum):
     PAIR = "PAIR"  # LLM-generated social engineering (Chao et al.)
     GCG = "GCG"  # Gradient suffix (Zou et al.)
     JAILBREAKCHAT = "JBC"  # Human-crafted template
-    DSN = "DSN"  #
-    PWRS = "prompt_with_random_search"  #
+    DSN = "DSN"  # Do-Something-Now prompts
+    PWRS = "prompt_with_random_search"  # Random token search
     DIRECT = "direct"  # No attack scaffolding — base behavior
     BENIGN = "benign"  # Not an attack; benign lookalike
 
@@ -44,33 +44,48 @@ class HarmCategory(str, Enum):
 
 
 class Source(str, Enum):
-    JBB_ARTIFACTS = "jbb_artifacts"
-    JBB_BASE = "jbb_base"
-    JBB_BENIGN = "jbb_benign"
+    """Which JailbreakBench split a prompt came from."""
+
+    JBB_ARTIFACTS = "jbb_artifacts"   # attack-algorithm artifact prompts
+    JBB_BASE = "jbb_base"             # direct harmful requests, no scaffolding
+    JBB_BENIGN = "jbb_benign"         # benign lookalikes (false-positive control)
 
 
 class Configuration(str, Enum):
+    """Which pipeline configuration was used to generate a result."""
+
     GENERATOR_ALONE = "generator_alone"
     FILTER_THEN_GENERATOR = "filter_then_generator"
 
 
 class Generator(str, Enum):
+    """Generator models under evaluation."""
+
     LLAMA_33_70B = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
     CLAUDE_HAIKU_45 = "claude-haiku-4-5"
 
 
 class Judge(str, Enum):
+    """Independent judge models used to classify generator responses.
+
+    All three are from different model families to avoid self-judgment bias.
+    """
+
     GEMMA = "google/gemma-3n-E4B-it"
     KIMI = "moonshotai/Kimi-K2.5"
     MINI = "MiniMaxAI/MiniMax-M2.7"
 
 
 class FilterVerdict(str, Enum):
+    """Llama Guard's decision on whether to pass a prompt to the generator."""
+
     ALLOW = "allow"
     BLOCK = "block"
 
 
 class JudgeVerdict(str, Enum):
+    """A judge model's classification of a generator response."""
+
     REFUSAL = "refusal"
     COMPLIANCE_HARMFUL = "compliance_harmful"
     COMPLIANCE_BENIGN = "compliance_benign"
