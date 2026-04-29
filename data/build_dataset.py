@@ -18,7 +18,7 @@ def create_prompt_from_base(
     data = {
         "prompt_id": f"base_{is_benign}_{idx}",
         "source": f"jbb_{'benign' if is_benign else 'base'}",
-        "attack_algorithm": "direct",
+        "attack_algorithm": "benign" if is_benign else "direct",
         "harm_category": category,
         "prompt_text": goal,
         "is_benign": is_benign,

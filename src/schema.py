@@ -142,7 +142,9 @@ class ConfusionCell(BaseModel):
     generator: Generator
     filter_allow_gen_refuse: int
     filter_allow_gen_comply: int
+    filter_allow_gen_comply_benign: int
     filter_block_gen_refuse: int  # counterfactual from config A
     filter_block_gen_comply: int  # counterfactual from config A
+    filter_block_gen_comply_benign: int
     judge_agreement_rate: float = Field(..., ge=0.0, le=1.0)
     n_total: int
