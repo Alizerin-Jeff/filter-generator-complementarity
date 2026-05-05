@@ -46,9 +46,9 @@ class HarmCategory(str, Enum):
 class Source(str, Enum):
     """Which JailbreakBench split a prompt came from."""
 
-    JBB_ARTIFACTS = "jbb_artifacts"   # attack-algorithm artifact prompts
-    JBB_BASE = "jbb_base"             # direct harmful requests, no scaffolding
-    JBB_BENIGN = "jbb_benign"         # benign lookalikes (false-positive control)
+    JBB_ARTIFACTS = "jbb_artifacts"  # attack-algorithm artifact prompts
+    JBB_BASE = "jbb_base"  # direct harmful requests, no scaffolding
+    JBB_BENIGN = "jbb_benign"  # benign lookalikes (false-positive control)
 
 
 class Configuration(str, Enum):
@@ -141,10 +141,10 @@ class ConfusionCell(BaseModel):
     attack_algorithm: AttackAlgorithm
     generator: Generator
     filter_allow_gen_refuse: int
-    filter_allow_gen_comply: int
+    filter_allow_gen_comply_harmful: int
     filter_allow_gen_comply_benign: int
     filter_block_gen_refuse: int  # counterfactual from config A
-    filter_block_gen_comply: int  # counterfactual from config A
+    filter_block_gen_comply_harmful: int  # counterfactual from config A
     filter_block_gen_comply_benign: int
     judge_agreement_rate: float = Field(..., ge=0.0, le=1.0)
     n_total: int

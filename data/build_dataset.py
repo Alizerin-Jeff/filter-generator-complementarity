@@ -74,10 +74,12 @@ def write_artifact_data():
                     continue
                 f.write(prompt.model_dump_json() + "\n")
 
+
 def main():
     # Write data to attacks.jsonl - Run from project root dir
     write_base_data()
     write_artifact_data()
+
 
 if __name__ == "__main__":
     main()

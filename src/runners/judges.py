@@ -80,7 +80,9 @@ async def judge_one_result(
     async def one_judge_call(judge_model: str) -> tuple[str, JudgeVerdict]:
         async with concurrency:
             async with limiter:
-                verdict = await get_verdict(result, judge_model, attack_prompt.prompt_text)
+                verdict = await get_verdict(
+                    result, judge_model, attack_prompt.prompt_text
+                )
                 return judge_model, verdict
 
     judge_list = [one_judge_call(model.value) for model in Judge]

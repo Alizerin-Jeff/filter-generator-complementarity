@@ -85,7 +85,7 @@ cp .env.example .env
 # Add TOGETHER_AI_API_KEY and ANTHROPIC_API_KEY
 
 # Build the dataset from JailbreakBench
-uv run data/build_dataset.py
+uv run -m data.build_dataset
 
 # Smoke test — first 10 prompts only
 uv run src/pipeline.py --dry-run 10

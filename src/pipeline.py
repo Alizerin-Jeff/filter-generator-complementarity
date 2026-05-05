@@ -33,8 +33,8 @@ async def amain(limit):
     print("Checking for existing results...")
     seen = get_existing_results_set("results/raw_results.jsonl")
     print("Generating results.")
-    await run_generator_async(attacks, run_id, seen, limit, limiter, concurrency)
 
+    await run_generator_async(attacks, run_id, seen, limit, limiter, concurrency)
 
     print("\nGathered all results, now Judging them.")
     results_list = get_results()
