@@ -4,6 +4,11 @@ Do safety filters actually catch attacks that frontier LLMs miss, or do they jus
 
 This experiment characterizes the complementarity structure between a small safety classifier (Llama Guard 4 12B) and two larger generator models (Llama 3.3 70B, Claude Haiku 4.5) across ~680 adversarial prompts from [JailbreakBench](https://jailbreakbench.github.io/). Each prompt runs through two configurations — generator alone and filter-then-generator — producing a 2×2 confusion matrix that reveals where each component catches attacks the other misses.
 
+## Read the Findings
+
+- 📄 **[Formal PDF Writeup](writeup.pdf)**: Comprehensive report including methodology, generated confusion matrices, and detailed metrics.
+- 📝 **[Medium Article](https://medium.com/TODO-PLACEHOLDER)**: An accessible, narrative breakdown of the core findings.
+
 ## Key Question
 
 When a filter blocks a prompt that the generator would have refused anyway, the filter adds latency without adding safety. When the filter blocks something the generator would have complied with, the filter is doing real work. The ratio between these two cases quantifies the *marginal value* of the filter — and it varies by attack algorithm.
@@ -118,8 +123,8 @@ Judging will be analyzed using Gwet’s AC1.
 
 - [x] Dataset construction (682 prompts, 5 attack types + benign control)
 - [x] Generation pipeline (2 configs × 2 generators × 682 prompts)
-- [ ] Judging pipeline (in progress)
-- [ ] Confusion matrix analysis by attack algorithm
-- [ ] Judge agreement analysis
-- [ ] Write-up and figures
+- [x] Judging pipeline
+- [x] Confusion matrix analysis by attack algorithm
+- [x] Judge agreement analysis
+- [x] Write-up and figures
 - [ ] Async pipeline with per-provider rate limiting (Together 60/min, Anthropic 50/min)
