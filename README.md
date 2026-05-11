@@ -2,7 +2,7 @@
 
 Do safety filters actually catch attacks that frontier LLMs miss, or do they just duplicate what the model's own refusal training already handles?
 
-This experiment characterizes the complementarity structure between a small safety classifier (Llama Guard 4 12B) and two larger generator models (Llama 3.3 70B, Claude Haiku 4.5) across ~680 adversarial prompts from [JailbreakBench](https://jailbreakbench.github.io/). Each prompt runs through two configurations — generator alone and filter-then-generator — producing a 2×2 confusion matrix that reveals where each component catches attacks the other misses.
+This experiment characterizes the complementarity structure between a small safety classifier (Llama Guard 4 12B) and two larger generator models (Llama 3.3 70B, Claude Haiku 4.5) across 682 adversarial prompts from [JailbreakBench](https://jailbreakbench.github.io/). Each prompt runs through two configurations — generator alone and filter-then-generator — producing a 2×2 confusion matrix that reveals where each component catches attacks the other misses.
 
 ## Read the Findings
 
@@ -128,3 +128,10 @@ Judging will be analyzed using Gwet’s AC1.
 - [x] Judge agreement analysis
 - [x] Write-up and figures
 - [ ] Async pipeline with per-provider rate limiting (Together 60/min, Anthropic 50/min)
+
+## Future Work
+
+- **Held-out adversarial set.** Generate fresh attack prompts against behaviors not present in JailbreakBench artifacts (e.g., new PAIR runs with a different attacker LLM on novel behaviors). Report the gap between canonical-benchmark attack success and held-out attack success as an explicit contamination measurement.
+- **Output-side filtering.** Llama Guard 4 supports output-side filtering natively, which catches a different failure mode (the generator engages with an attack despite an innocuous-looking prompt). Test whether the same generator-dependent complementarity pattern holds on the output path.
+- **Multi-turn attack scenarios.** Single-turn evaluation undersells real-world attack patterns. Context drift across turns is where input filters typically struggle most.
+- **Stronger filters.** Replicate against Constitutional Classifiers++ or other state-of-the-art filters to test whether the redundancy on strong generators (Haiku) holds when the filter itself is far more capable.
