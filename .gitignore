@@ -14,7 +14,7 @@ wheels/
 env.py
 .env
 
-explore.ipynb
+*.ipynb
 proposal.md
 .vscode
 results/
